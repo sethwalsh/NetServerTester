@@ -72,10 +72,21 @@ private:
 			Payload:
 				0-16384 bytes of data
 			*/
-			
-			std::string STR(boost::asio::buffers_begin(buf_.data()), boost::asio::buffers_begin(buf_.data()) + bytes_transferred);
 
-			if(STR.length() < 5)//if (strlen((char*)data_) < 5)
+			unsigned char* output = (unsigned char*)malloc(buf_.size());
+			memcpy(output, boost::asio::buffer_cast<const void*>(buf_.data()), buf_.size());
+			uint16_t flag = output[0] | uint16_t(output[1]) << 8;
+			uint16_t eflag = output[2] | uint16_t(output[3]) << 8;
+			uint16_t psize = output[4] | uint16_t(output[5]) << 8;
+			uint16_t usize = output[6] | uint16_t(output[7]) << 8;
+			uint16_t tsize = output[8] | uint16_t(output[9]) << 8;
+
+			std::string PAYLOAD(reinterpret_cast<char const*>(&output[10]), psize);
+			std::string TIME(reinterpret_cast<char const*>(&output[10 + psize]), tsize);
+			std::string USER(reinterpret_cast<char const*>(&output[10 + psize + tsize]), usize);
+			std::string MD5(reinterpret_cast<char const*>(&output[10 + psize + tsize + usize]), 32);
+
+			if(PAYLOAD.length() < 5)//if (strlen((char*)data_) < 5)
 			{
 				/*
 				sprintf(data_, "-1");
