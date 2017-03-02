@@ -40,10 +40,11 @@ public:
 
 	void start()
 	{
-		boost::asio::async_read_until(socket_, buf_, '\n', 
+		boost::asio::async_read_until(socket_, buf_, "\n\n", 
 			boost::bind(&session::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 		);
-		
+
+				
 		//socket_.async_read_some(boost::asio::buffer(data_, max_length),
 		//	boost::bind(&session::handle_read, this,
 		//		boost::asio::placeholders::error,
@@ -57,22 +58,26 @@ private:
 		if (!error)
 		{
 			/*
-			Packet:
-				1 byte Packet Type Flag
-				4 byte Packet Size
-				X byte Packet Payload
-
 			Flag:
-				1 Request Program List
-				2 Submit Data
+				1 Sending Data
 
-			Size:
-				0-65,535 bits (16384 bytes)
+			Eflag:
+				3 Event Data
 
-			Payload:
-				0-16384 bytes of data
+			Psize:
+				Payload size (EVENT + Timestamp + Username)
+
+			Usize:
+				Username length
+
+			Tsize:
+				Length of Timestamp
+
+			MD5:
+				32 bytes
 			*/
-
+			
+			
 			unsigned char* output = (unsigned char*)malloc(buf_.size());
 			memcpy(output, boost::asio::buffer_cast<const void*>(buf_.data()), buf_.size());
 			uint16_t flag = output[0] | uint16_t(output[1]) << 8;
@@ -81,61 +86,29 @@ private:
 			uint16_t usize = output[6] | uint16_t(output[7]) << 8;
 			uint16_t tsize = output[8] | uint16_t(output[9]) << 8;
 
-			std::string PAYLOAD(reinterpret_cast<char const*>(&output[10]), psize);
-			std::string TIME(reinterpret_cast<char const*>(&output[10 + psize]), tsize);
-			std::string USER(reinterpret_cast<char const*>(&output[10 + psize + tsize]), usize);
-			std::string MD5(reinterpret_cast<char const*>(&output[10 + psize + tsize + usize]), 32);
+			std::string PAYLOAD(reinterpret_cast<char const*>(&output[10]), (psize-tsize-usize));	
+			std::string TIME(reinterpret_cast<char const*>(&output[10 + (psize - tsize - usize)]), tsize);
+			std::string USER(reinterpret_cast<char const*>(&output[10 + psize - usize]), usize);
+			std::string MD5(reinterpret_cast<char const*>(&output[10 + psize]), 32);
 
-			if(PAYLOAD.length() < 5)//if (strlen((char*)data_) < 5)
+			/// Compute the pre-hash string of unsigned chars
+			std::vector<unsigned char> preHash;
+			for (int i = 0; i < bytes_transferred - 32 - 2; i++)
 			{
-				/*
-				sprintf(data_, "-1");
-
-				boost::asio::async_write(socket_,
-					boost::asio::buffer(data_, 1),
-					boost::bind(&session::handle_write, this,
-						boost::asio::placeholders::error));
-				*/
-				int x = 33;
+				preHash.push_back(output[i]);
 			}
-			else
-			{				
-				unsigned char PACKET_FLAG_ = data_[0];
-				uint16_t PACKET_SIZE_ = 0;
-				char c = data_[1];
-				PACKET_SIZE_ = PACKET_SIZE_ | (strtol(&c, NULL, 16) << 12);
-				c = data_[2];
-				PACKET_SIZE_ = PACKET_SIZE_ | (strtol(&c, NULL, 16) << 8);
-				c = data_[3];
-				PACKET_SIZE_ = PACKET_SIZE_ | (strtol(&c, NULL, 16) << 4);
-				c = data_[4];
-				PACKET_SIZE_ = PACKET_SIZE_ | strtol(&c, NULL, 16);
-				unsigned char *PACKET_PAYLOAD_ = &data_[5];
 
-				// If packet size != bytes_transferred
-				if(PACKET_SIZE_ != bytes_transferred)
-					boost::asio::async_write(socket_,
-						boost::asio::buffer("-1\n", 2),
-						boost::bind(&session::handle_write, this,
-							boost::asio::placeholders::error));
-
-				std::vector<char> payload_;
-				for (int i = 0; i < (PACKET_SIZE_ - 5); i++)
-				{
-					payload_.push_back(*PACKET_PAYLOAD_);
-					++PACKET_PAYLOAD_;
-				}
-				//std::string s(PACKET_PAYLOAD_);
-
-				sprintf((char*)data_, "%d%s", PACKET_SIZE_,"\n");
-
+			
+			/// Compute MD5 hash of everything minus the incoming MD5 Hash, compare, and report results
+			//if(hashMD5String(preHash) == MD5)
+			//{
 				boost::asio::async_write(socket_,
-					boost::asio::buffer("hi"),
+					boost::asio::buffer("0\n\n", 3),
 					boost::bind(&session::handle_write, this,
 						boost::asio::placeholders::error));
-				int x = 33;
-
-			}			
+			//}
+			
+			int x = 33;						
 		}
 		else
 		{
@@ -147,7 +120,7 @@ private:
 	{
 		if (!error)
 		{
-			std::cout << "handle_write: " << data_ << std::endl;
+			std::cout << "handle_write: "<< std::endl;
 
 			//socket_.async_read_some(boost::asio::buffer(data_, max_length),
 			//	boost::bind(&session::handle_read, this,
