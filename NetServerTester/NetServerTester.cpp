@@ -98,16 +98,28 @@ private:
 				preHash.push_back(output[i]);
 			}
 
-			
-			/// Compute MD5 hash of everything minus the incoming MD5 Hash, compare, and report results
+			std::cout << "Got: " << output << std::endl;
+
+			/// Compute MD5 hash of everything minus the incoming MD5 Hash, compare, and report results			
+			data_ = new char[MD5.length() + 1];
+			std::strcpy(data_, MD5.c_str());
 			//if(hashMD5String(preHash) == MD5)
 			//{
+				//boost::asio::async_write(socket_,
+				//	boost::asio::buffer("0\n\n", 3),
+				//	boost::bind(&session::handle_write, this,
+				//		boost::asio::placeholders::error));
 				boost::asio::async_write(socket_,
-					boost::asio::buffer("0\n\n", 3),
+					boost::asio::buffer(data_, MD5.length()),
+					boost::bind(&session::handle_write, this,
+						boost::asio::placeholders::error));
+				boost::asio::async_write(socket_,
+					boost::asio::buffer("\n\n", 2),
 					boost::bind(&session::handle_write, this,
 						boost::asio::placeholders::error));
 			//}
 			
+				std::cout << "Sending: " << data_ << std::endl;
 			int x = 33;						
 		}
 		else
@@ -120,7 +132,7 @@ private:
 	{
 		if (!error)
 		{
-			std::cout << "handle_write: "<< std::endl;
+			//std::cout << "handle_write: "<< std::endl;
 
 			//socket_.async_read_some(boost::asio::buffer(data_, max_length),
 			//	boost::bind(&session::handle_read, this,
@@ -135,7 +147,7 @@ private:
 
 	tcp::socket socket_;
 	enum { max_length = 4096 };
-	unsigned char * data_;//unsigned char data_[max_length];
+	char * data_;//unsigned char data_[max_length];
 	boost::asio::streambuf buf_;
 	uint16_t BYTES_SENT;
 	
@@ -181,6 +193,9 @@ private:
 
 int main(int argc, char* argv[])
 {
+	while (true)
+	{
+	
 	try
 	{
 		//if (argc != 2)
@@ -200,6 +215,6 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << "Exception: " << e.what() << "\n";
 	}
-
+	}
 	return 0;
 }
